@@ -1,0 +1,80 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: churn-api
+
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./mlflow.db:/app/mlflow.db
+
+  monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.monitor
+
+    container_name: churn-monitor
+
+    ports:
+      - "8001:8001"
+
+    depends_on:
+      - api
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./mlflow.db:/app/mlflow.db
+
+
+
+  prometheus:
+    image: prom/prometheus:latest
+
+    container_name: prometheus
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+    depends_on:
+      - api
+      - monitor
+
+  grafana:
+    image: grafana/grafana:latest
+
+    container_name: grafana
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+    depends_on:
+      - prometheus
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler
+
+    container_name: churn-scheduler
+
+    depends_on:
+      - api
+      - monitor
+
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./mlflow.db:/app/mlflow.db
+      - ./data:/app/data
+      - ./retraining:/app/retraining:ro
+
+volumes:
+  grafana-storage:
